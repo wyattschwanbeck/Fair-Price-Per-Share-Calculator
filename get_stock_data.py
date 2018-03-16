@@ -2,7 +2,7 @@
 """
 Created on Sun Mar 11 13:39:20 2018
 
-@author: Wyatt
+@author: https://gist.github.com/scrapehero
 """
 
 from lxml import html  
