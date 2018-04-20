@@ -4,8 +4,9 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 What it does:
 1. Calculate Value Drivers
-2. Estimate WACC (Done, Shares outstanding calculation is rough, based on Market Cap/Share Price.)
-3. Project future potential financial performance (Estimates share price based on long term growth potential default = 1.25%)
+2. Estimate Weighted Average Cost of Capital 
+3. Project future potential financial performance 
+    -Estimates share price based on long term growth potential (default = 1.25%) of yearly free cash flows
 
 To Use:
 1. download package
@@ -22,3 +23,10 @@ How it works:
 
 Warnings about the data: 
 1. Depreciation is not calculated... because most companies to not share "Gross, property plant and equipment" on their balance sheets. It is defaulted at 40%, much higher than most companies actually depreciate their equipment. You can calculate this by dividing total "Depreciation" from cash flow sheet by "Gross, property plant and equipment" usually provided in the actual annual 10k.
+
+
+Currently Working on:
+1. Refining the mess I have created within the FPPS_Excel_Injector. It works but the current rows are confusing and it is in a spaghetti mess of a code structure.
+2. Data calls directly to the dict structs need to be removed and encapsulated.
+3. Comments need to be added to each class, functions, and variables within
+4. Being a better person.
