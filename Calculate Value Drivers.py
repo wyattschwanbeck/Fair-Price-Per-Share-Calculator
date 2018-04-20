@@ -7,7 +7,6 @@ Using Past 5 year, income statement, statement of cash flows, and balance sheet 
 import pandas as pd
 import numpy as np
 import get_stock_data
-from FPPS_Excel_Injector import FPPS_Excel_Injector
 import csv
 
 class Calculate_Value_Drivers(object):
@@ -70,20 +69,19 @@ class Calculate_Value_Drivers(object):
         
         
         self.sheet_index = {"IS" : dict(), "CF" :dict(), "BS":dict()}
-        self.IS = pd.read_csv(income_statement, skiprows=1)
+        self.IS = pd.read_csv(income_statement, skiprows=0)
         self.IS.replace("NaN", 0, inplace = True)
         
 
-        self.CF = pd.read_csv(cash_flows, skiprows=1)
+        self.CF = pd.read_csv(cash_flows, skiprows=0)
         self.CF.replace("NaN", 0, inplace = True)
-        self.BS = pd.read_csv(balance_sheet, skiprows=1)
+        self.BS = pd.read_csv(balance_sheet, skiprows=0)
         self.BS.replace("NaN", 0, inplace = True)
         
         self.latest_year = self.BS.columns.values[-1][0:4]
         self.years = self.BS.columns.values[1:]    
 
         self.IS = np.array(self.IS)
-        #self.verify_names(self.IS, "Financial Statement Data Labels/Income Statement.txt")
         self.BS = np.array(self.BS)
         self.CF = np.array(self.CF)
         self.IS = \
@@ -95,7 +93,7 @@ class Calculate_Value_Drivers(object):
         
 
     def calculate_value_drivers(self):
-        self.generate_index_lists()
+        self._generate_index_lists()
         
         self.calculate_sales_growth()
         self.calculate_operating_exp_to_sales()
@@ -106,12 +104,12 @@ class Calculate_Value_Drivers(object):
         self.capital_expenditure_to_sales()
         self.calculate_latest_debt()
         self.interest_paid_on_debt()
-        #self.calculate_tax_rate()
+        self.calculate_tax_rate()
         self.value_drivers_dict["Tax Rate"] = .21      
         self.last_ONWC = 0     
         self.calculate_ONWC()        
         
-        self.raw_stock_data = get_stock_data.parse(ticker)
+        self.raw_stock_data = get_stock_data.parse(self.ticker)
         self.calculate_shares_outstanding()
         self.calculate_cost_of_equity()
         self.calculate_WACC()
@@ -127,41 +125,66 @@ class Calculate_Value_Drivers(object):
             for c,check_name in enumerate(sheet_array[0:]):
                             
                 if(check_name[0] in name and name[0]!=check_name[0]):
-                    print("Replacing Data Label: {} to {}".format(check_name[0], name[0]))
+                    print("Replacing Data Label: {} to {}".\
+                    format(check_name[0], name[0]))
                     check_name[0] = name[0]
         
         return sheet_array
         
-    def get_BS_item(self, item, index):
+    def get_BS_item(self, item, index=False, make_positive = False):
         try:
-            return self.BS[self.sheet_index["BS"][item]][index]
-        except KeyError:
-            print("Unable to retreive {} from BS at index {}".format(item, index))
-            return 0
-
-    def get_IS_item(self, item, index):
-        try:
-            if(index == False):
-                return self.IS[self.sheet_index["IS"][item]]
-                
-            return self.IS[self.sheet_index["IS"][item]][index]
-        except KeyError:
-            print("Unable to retreive {} from IS at index {}".format(item, index))
-            return 0
-    
-    def get_CF_item(self, item, index, make_positive = False):
-        try:
-            item = self.CF[self.sheet_index["CF"][item]][index]
-            if(make_positive == True and item < 0):    
+            if(index != False):
+                item = self.BS[self.sheet_index["BS"][item]][index]
+            else:
+                item = self.BS[self.sheet_index["BS"][item]]
+            if(make_positive == True and item < 0 and index != False):    
                 return -item
             else:
                 return item
                 
         except KeyError:
-            print("Unable to retreive {} from IS at index {}".format(item, index))
+            if(index == False):
+                print("Unable to retreive list of {} from BS".\
+            format(item))
+                return [0]*len(self.BS[1])
+                        
+            print("Unable to retreive {} from BS at index {}".\
+            format(item, index))
+            return 0
+    
+    def get_IS_item(self, item, index=False, make_positive = False):
+        try:
+            if(index != False):
+                item = self.IS[self.sheet_index["IS"][item]][index]
+            else:
+                item = self.IS[self.sheet_index["IS"][item]]
+            if(make_positive == True and item < 0 and index != False):    
+                return -item
+            else:
+                return item
+                
+        except KeyError:
+            print("Unable to retreive {} from IS at index {}".\
+            format(item, index))
+            return 0
+    
+    def get_CF_item(self, item, index=False, make_positive = False):
+        try:
+            if(index != False):
+                item = self.CF[self.sheet_index["CF"][item]][index]
+            else:
+                item = self.CF[self.sheet_index["CF"][item]]
+            if(make_positive == True and item < 0 and index != False):    
+                return -item
+            else:
+                return item
+                
+        except KeyError:
+            print("Unable to retreive {} from CF at index {}".\
+            format(item, index))
             return 0
         
-    def generate_index_lists(self):
+    def _generate_index_lists(self):
         for r,rows in enumerate(self.IS,0):
             if(rows[0] == "Total net revenue"):
                 self.sheet_index["IS"]["Revenue"] = r
@@ -188,7 +211,7 @@ class Calculate_Value_Drivers(object):
         sales_growth = self.average_rate_of_change(rev)
                 
         self.value_drivers_dict["Sales Growth"] = round(sales_growth, 4)
-        print("Sales Growth: {}".format(self.value_drivers_dict["Sales Growth"]))
+        print("Sales Growth:{}".format(self.value_drivers_dict["Sales Growth"]))
                 
     def calculate_operating_exp_to_sales(self):
         '''excluding depreciation from operating expenses,
@@ -208,8 +231,10 @@ class Calculate_Value_Drivers(object):
     
     '''def calculate_depreciation(self):
         yearly = []
-        depreciation = self.CF[self.sheet_index["CF"]["Depreciation & amortization"]]
-        ppe = self.BS[self.sheet_index["BS"]['Gross property, plant and equipment']]
+        depreciation = self.get_CF_item\
+        ("Depreciation & amortization", index = False)
+        ppe = self.get_BS_item\
+        ('Gross property, plant and equipment', index = False)
         for year in range(4,6):
             yearly.append(\
             (depreciation[year]/ \
@@ -245,7 +270,8 @@ class Calculate_Value_Drivers(object):
     def capital_expenditure_to_sales(self):
         yearly = []
         for year in range(1,6):
-            ce = self.get_CF_item("Capital expenditure", year, make_positive = True)
+            ce = self.get_CF_item\
+            ("Capital expenditure", year, make_positive = True)
             rev = self.get_IS_item("Revenue", year)            
             yearly.append(ce/rev)
         print("Capital Expenditure to Sales: {}".format(np.average(yearly)))
@@ -258,8 +284,9 @@ class Calculate_Value_Drivers(object):
     def interest_paid_on_debt(self):
         rates = []
         try:
-            ltd = self.BS[self.sheet_index["BS"]["Long-term debt"]][1:6]
+            ltd = self.get_BS_item("Long-term debt")[1:6]
             for y,year in enumerate(ltd, 0):
+                int_ex = self.get_IS_item("Interest expense",y+1)
                 if(y == 0):
                     previous_year = year  
                     continue
@@ -267,7 +294,7 @@ class Calculate_Value_Drivers(object):
                     latest_year = year                
                     try:
                         rates.append\
-                    (self.IS[self.sheet_index["IS"]["Interest expense"]][y+1]/\
+                    (int_ex/\
                     ((latest_year + previous_year)/2))
                     except ZeroDivisionError:
                         rates.append(0)
@@ -283,15 +310,13 @@ class Calculate_Value_Drivers(object):
 
     def calculate_tax_rate(self):
         yearly = []
+        tx_prv = self.get_IS_item("Provision for income taxes")
+        ebt = self.get_IS_item("Income before income taxes")
         for year in range(1,6):
-            if(self.IS[self.sheet_index["IS"]["Provision for income taxes"]][year]<0):
-                yearly.append(\
-                (-self.IS[self.sheet_index["IS"]["Provision for income taxes"]][year])/ \
-                self.IS[self.sheet_index["IS"]["Income before income taxes"]][year])
+            if(tx_prv[year]<0):
+                yearly.append((-tx_prv[year]) /ebt[year])
             else:
-                yearly.append(\
-                (self.IS[self.sheet_index["IS"]["Provision for income taxes"]][year])/ \
-                self.IS[self.sheet_index["IS"]["Income before income taxes"]][year])
+                yearly.append((tx_prv[year])/ebt[year])
         print("Tax Rate: {}".format(np.average(yearly)))
         self.value_drivers_dict["Tax Rate"] = round(np.average(yearly), 4)
         
@@ -322,10 +347,9 @@ class Calculate_Value_Drivers(object):
         
     def calculate_shares_outstanding(self):
         '''Market Cap / share price '''
-        try:        
-            market_cap = self.raw_stock_data["Market Cap"]  
-        except:
-            market_cap = "233.903B"
+        
+        market_cap = self.raw_stock_data["Market Cap"]  
+
         if(market_cap[-1] == "B"):
             market_cap = int(float(market_cap[0:-1])*1000000000)
         elif(market_cap[-1] == "M"):
@@ -360,7 +384,8 @@ class Calculate_Value_Drivers(object):
         lt_debt = self.get_BS_item("Long-term debt", -1)
         tax_rate = self.value_drivers_dict["Tax Rate"]
         #convert shares outstanding to millions to match financial statement data format
-        total_equity = (self.value_drivers_dict["Shares outstanding"]/1000000) *\
+        #total_equity = (self.value_drivers_dict["Shares outstanding"]/1000000) *\
+        total_equity = (self.value_drivers_dict["Shares outstanding"]) *\
             current_price
             
         self.value_drivers_dict["WACC"] = \
@@ -417,28 +442,3 @@ class Calculate_Value_Drivers(object):
             
             for driver in self.value_drivers_list:
                 writer.writerow([driver, self.value_drivers_dict[driver]])
-    
-
-
-        
-        
-        
-        
-ticker = "SBUX"
-income_statement = "{}/{} Income Statement.csv".format(ticker, ticker)
-cash_flow = "{}/{} Cash Flow.csv".format(ticker, ticker)
-balance_sheet = "{}/{} Balance Sheet.csv".format(ticker, ticker)
-value_drivers = Calculate_Value_Drivers(income_statement, cash_flow, balance_sheet, ticker, .015)
-value_drivers.calculate_value_drivers()
-value_drivers.write_to_csv()
-
-#b = FPPS.Free_Cash_Flow(a, 2, ticker)
-c = FPPS_Excel_Injector(value_drivers, "{}/{} Compiled Projection.xlsx".format(ticker,ticker), "{}/".format(ticker), 2)
-
-c.load_financial_data_to_sheets()
-
-
-c.workbook.close()
-
-
-
