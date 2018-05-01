@@ -1,9 +1,3 @@
-"""
-Created on Fri Mar  9 09:22:09 2018
-Updated 4/16/2018, 10:10 AM EST
-Using Past 5 year, income statement, statement of cash flows, and balance sheet downloads from Morningstar.com
-@author: Wyatt
-"""
 import pandas as pd
 import numpy as np
 import get_stock_data
@@ -25,10 +19,10 @@ class Calculate_Value_Drivers(object):
         "Capital Expenditure to Sales", \
         "Interest earned on cash and equivalents", 
         "Cost of debt", \
+        "Latest Long-term debt",  
         "Tax Rate", \
-        "ONWC", \
-        "Latest Long-term debt", \
-        "Shares outstanding", \
+        "ONWC to Sales", \
+        "Latest ONWC",
         "Cost of equity", \
         "Risk free rate", \
         "Beta",
@@ -36,7 +30,7 @@ class Calculate_Value_Drivers(object):
         "Long Term Growth",
         "Market Return",
         "Current Share Price",
-        "Latest ONWC",
+        "Shares outstanding",  
         "Dividend Rate",
         "Dividend Growth Rate",
         "Annual Stock Repurchase"]        
@@ -49,7 +43,7 @@ class Calculate_Value_Drivers(object):
         "Interest earned on cash and equivalents" : risk_free_rate, 
         "Cost of debt" : 0, \
         "Tax Rate" : 0,
-        "ONWC" : 0,
+        "ONWC to Sales" : 0,
         "Latest Long-term debt" : 0,
         "Shares outstanding" : 0,
         "Cost of equity" : 0,
@@ -104,7 +98,7 @@ class Calculate_Value_Drivers(object):
         self.capital_expenditure_to_sales()
         self.calculate_latest_debt()
         self.interest_paid_on_debt()
-        self.calculate_tax_rate()
+        #self.calculate_tax_rate()
         self.value_drivers_dict["Tax Rate"] = .21      
         self.last_ONWC = 0     
         self.calculate_ONWC()        
@@ -148,6 +142,15 @@ class Calculate_Value_Drivers(object):
             format(item))
                 return [0]*len(self.BS[1])
                         
+            if(item == "Total current liabilities"):
+                current_liab = ["Short-term borrowing", 
+                "Payables and accrued expenses", 
+                "Taxes payable"]
+                print("Total current liabilities not given, calculating...")
+                total_cur_liab = 0                
+                for liab in current_liab:
+                    total_cur_liab += self.get_BS_item(liab, index)
+                return total_cur_liab
             print("Unable to retreive {} from BS at index {}".\
             format(item, index))
             return 0
@@ -308,7 +311,7 @@ class Calculate_Value_Drivers(object):
             print("Long Term Debt Not Found!")
             self.value_drivers_dict["Cost of debt"] = 0
 
-    def calculate_tax_rate(self):
+    '''def calculate_tax_rate(self):
         yearly = []
         tx_prv = self.get_IS_item("Provision for income taxes")
         ebt = self.get_IS_item("Income before income taxes")
@@ -318,24 +321,21 @@ class Calculate_Value_Drivers(object):
             else:
                 yearly.append((tx_prv[year])/ebt[year])
         print("Tax Rate: {}".format(np.average(yearly)))
-        self.value_drivers_dict["Tax Rate"] = round(np.average(yearly), 4)
+        self.value_drivers_dict["Tax Rate"] = round(np.average(yearly), 4)'''
         
     def calculate_ONWC(self):
         yearly = []            
         for year in range(1,6):
             rec = self.get_BS_item("Receivables", year)
             inv = self.get_BS_item("Inventories", year)
-            yearly.append(\
-            ((rec + inv) - \
-            self.BS[self.sheet_index["BS"]["Total current liabilities"]][year])/ \
-            self.IS[self.sheet_index["IS"]["Revenue"]][year])
+            tcl = self.get_BS_item("Total current liabilities", year)
+            rev = self.get_IS_item("Revenue", year)
+            yearly.append(((rec + inv) - tcl)/ rev)
             if(year == 5):
-               self.value_drivers_dict["Latest ONWC"] = (rec + \
-            inv) - \
-            self.BS[self.sheet_index["BS"]["Total current liabilities"]][year]
-        
-        print("Operating Net Working Capital to Sales: {}".format(np.average(yearly)))
-        self.value_drivers_dict["ONWC"] = round(np.average(yearly), 4)    
+               self.value_drivers_dict["Latest ONWC"] = (rec + inv) - tcl
+        print("Operating Net Working Capital to Sales: {}".\
+        format(np.average(yearly)))
+        self.value_drivers_dict["ONWC to Sales"] = round(np.average(yearly), 4)    
         
     def calculate_latest_debt(self):
         try:
@@ -359,32 +359,41 @@ class Calculate_Value_Drivers(object):
         except:
             price = 76.5
         self.value_drivers_dict["Shares outstanding"] = int(market_cap/price)
-        print("Shares Outstanding : {}".format(self.value_drivers_dict["Shares outstanding"]))
+        print("Shares Outstanding : {}".\
+        format(self.value_drivers_dict["Shares outstanding"]))
     
     def calculate_cost_of_equity(self):
-        '''CAPM baby. Cost of Equity = risk_free + (Beta*(Market_returns - risk_free))'''
+        '''CAPM baby.Cost of Equity=risk_free+(Beta*(Market_returns-risk_free))
+        '''
         try:        
             b = self.raw_stock_data["Beta"] != "N/A"
         except:
             b = "N/A"
         if(b != "N/A"):            
             self.value_drivers_dict["Beta"] = float(self.raw_stock_data["Beta"])
-            self.value_drivers_dict["Cost of equity"] = self.value_drivers_dict["Risk free rate"] + (self.value_drivers_dict["Beta"] *(.12 - self.value_drivers_dict["Risk free rate"]))
-            print("Cost of Equity: {}".format(self.value_drivers_dict["Cost of equity"]))
+            self.value_drivers_dict["Cost of equity"] = \
+            self.value_drivers_dict["Risk free rate"] + \
+            (self.value_drivers_dict["Beta"] * \
+            (.12 - self.value_drivers_dict["Risk free rate"]))
+
+            print("Cost of Equity: {}".format\
+            (self.value_drivers_dict["Cost of equity"]))
         else:
             print("Do Gordon Growth Formula")
                     
             
     def calculate_WACC(self):
-        '''(Cost of debt *((Debt / (Equity + Debt)) * (1-Tax rate))) + (Cost of equity)*((equity)/(equity + Debt))'''
+        '''(Cost of debt *((Debt / (Equity + Debt)) * (1-Tax rate)))
+        + (Cost of equity)*((equity)/(equity + Debt))'''
         current_price = float(self.raw_stock_data["Open"].replace(",", ""))
         self.value_drivers_dict["Current Share Price"] = current_price        
         cost_debt = self.value_drivers_dict["Cost of debt"]
         cost_equity = self.value_drivers_dict["Cost of equity"]
         lt_debt = self.get_BS_item("Long-term debt", -1)
         tax_rate = self.value_drivers_dict["Tax Rate"]
-        #convert shares outstanding to millions to match financial statement data format
-        #total_equity = (self.value_drivers_dict["Shares outstanding"]/1000000) *\
+        #convert shares outstanding to millions to match financial statement 
+        #data format
+        #total_equity =(self.value_drivers_dict["Shares outstanding"]/1000000)*\
         total_equity = (self.value_drivers_dict["Shares outstanding"]) *\
             current_price
             
@@ -416,7 +425,8 @@ class Calculate_Value_Drivers(object):
         print("Dividend Rate: {}".format(np.average(dividend_rate)))
         print("Dividend Growth: {}".format(np.average(dividend_growth)))
         self.value_drivers_dict["Dividend Rate"] = np.average(dividend_rate)
-        self.value_drivers_dict["Dividend Growth Rate"] = np.average(dividend_growth)
+        self.value_drivers_dict["Dividend Growth Rate"] = \
+        np.average(dividend_growth)
         #for year in range(1,6):
     
     def calculate_average_stock_repurchase(self):
@@ -437,8 +447,14 @@ class Calculate_Value_Drivers(object):
             print("Sorry that isn't in the value drivers list")
             
     def write_to_csv(self):
-        with open("{}/{} Value Drivers.csv".format(self.ticker, self.ticker), "w") as f:
+        with open\
+        ("{}/{} Value Drivers.csv".format(self.ticker, self.ticker), "w") as f:
             writer = csv.writer(f, lineterminator='\n')
             
             for driver in self.value_drivers_list:
                 writer.writerow([driver, self.value_drivers_dict[driver]])
+    
+
+
+        
+        
