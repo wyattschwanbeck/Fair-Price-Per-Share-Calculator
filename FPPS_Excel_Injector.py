@@ -132,7 +132,7 @@ class FPPS_Excel_Injector(object):
             except:
                 print("Could not retrieve list {} from {}".format\
                 (item, sheet_name))
-                return [0]*len(self.years)
+                return "0"
         try:
             return self.statements[sheet_name][item][index]
         except KeyError:
@@ -461,7 +461,11 @@ class FPPS_Excel_Injector(object):
         lt_debt = self.get_st_item("Balance Sheet","Long-term debt",-1)
         st_inv = self.get_st_item\
         ("Balance Sheet","Short-term investments",index=False)
-        avg_st_inv = "AVERAGE({}:{})".format(st_inv[1], st_inv[-1])        
+        
+        if st_inv=="0":
+            avg_st_inv = "0"
+        else:
+            avg_st_inv = "AVERAGE({}:{})".format(st_inv[1], st_inv[-1])  
 
         cash = self.get_st_item\
         ("Balance Sheet","Cash and cash equivalents",-1)
