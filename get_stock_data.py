@@ -1,47 +1,74 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sun Mar 11 13:39:20 2018
+Written by Wyatt Schwanbeck via sources from scrapehero
 
-@author: https://gist.github.com/scrapehero
 """
 
-from lxml import html  
+from lxml import html
 import requests
-from time import sleep
 import json
 from collections import OrderedDict
+import urllib
+import random
+
+
+
 
 def parse(ticker):
-	url = "http://finance.yahoo.com/quote/%s?p=%s"%(ticker,ticker)
-	response = requests.get(url, verify=False)
-	print ("Parsing %s"%(url))
-	sleep(4)
-	parser = html.fromstring(response.text)
+	user_agent_list = [
+   #Chrome
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 5.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 6.2; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.157 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 6.3; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36',
+    #Firefox
+    'Mozilla/4.0 (compatible; MSIE 9.0; Windows NT 6.1)',
+    'Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko',
+    'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; WOW64; Trident/5.0)',
+    'Mozilla/5.0 (Windows NT 6.1; Trident/7.0; rv:11.0) like Gecko',
+    'Mozilla/5.0 (Windows NT 6.2; WOW64; Trident/7.0; rv:11.0) like Gecko',
+    'Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko',
+    'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.0; Trident/5.0)',
+    'Mozilla/5.0 (Windows NT 6.3; WOW64; Trident/7.0; rv:11.0) like Gecko',
+    'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0)',
+    'Mozilla/5.0 (Windows NT 6.1; Win64; x64; Trident/7.0; rv:11.0) like Gecko',
+    'Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.1; WOW64; Trident/6.0)',
+    'Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.1; Trident/6.0)',
+    'Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.1; Trident/4.0; .NET CLR 2.0.50727; .NET CLR 3.0.4506.2152; .NET CLR 3.5.30729)'
+]
+	print("Getting recent Stock price data....")
+
+	url = "https://finance.yahoo.com/quote/%s?p=%s"%(ticker,ticker)
+	req = urllib.request.Request(
+			url,
+			data=None,
+			headers={
+				'User-Agent': random.choice(user_agent_list)
+			}
+		)
+
+	with urllib.request.urlopen(req) as response:
+		print ("Parsing %s"%(url))
+		parser = html.fromstring(response.read())
+
 	summary_table = parser.xpath('//div[contains(@data-test,"summary-table")]//tr')
 	summary_data = OrderedDict()
-	other_details_json_link = "https://query2.finance.yahoo.com/v10/finance/quoteSummary/{0}?formatted=true&lang=en-US&region=US&modules=summaryProfile%2CfinancialData%2CrecommendationTrend%2CupgradeDowngradeHistory%2Cearnings%2CdefaultKeyStatistics%2CcalendarEvents&corsDomain=finance.yahoo.com".format(ticker)
-	summary_json_response = requests.get(other_details_json_link)
 	try:
-		json_loaded_summary =  json.loads(summary_json_response.text)
-		y_Target_Est = json_loaded_summary["quoteSummary"]["result"][0]["financialData"]["targetMeanPrice"]['raw']
-		earnings_list = json_loaded_summary["quoteSummary"]["result"][0]["calendarEvents"]['earnings']
-		eps = json_loaded_summary["quoteSummary"]["result"][0]["defaultKeyStatistics"]["trailingEps"]['raw']
-		datelist = []
-		for i in earnings_list['earningsDate']:
-			datelist.append(i['fmt'])
-		earnings_date = ' to '.join(datelist)
+
 		for table_data in summary_table:
 			raw_table_key = table_data.xpath('.//td[contains(@class,"C($primaryColor)")]//text()')
 			raw_table_value = table_data.xpath('.//td[contains(@class,"Ta(end)")]//text()')
 			table_key = ''.join(raw_table_key).strip()
 			table_value = ''.join(raw_table_value).strip()
 			summary_data.update({table_key:table_value})
-		summary_data.update({'1y Target Est':y_Target_Est,'EPS (TTM)':eps,'Earnings Date':earnings_date,'ticker':ticker,'url':url})
+		print("Completed Parse")
 		return summary_data
 	except:
-		print ("Failed to parse json response")
+		print("Failed to parse json response")
 		return {"error":"Failed to parse json response"}
-		
-
-
-
