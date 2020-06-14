@@ -20,6 +20,14 @@ How it works:
 4. Calculate value drivers
 5. Project valuation on excel for desired amount of years. (line 35 last parameter denotes years_to_project)
 
+<b>To USE:</b> 
+Install required packages:
+pip install -r [Folder Path]/Fair-Price-Per-Share-Calculator/requirments.txt
+
+Run main file:
+python [Folder Path]/Fair-Price-Per-Share-Calculator/main.py
+
+Enter the ticker desired ticker symbol. The requests to download ticker data will sometimes get hung up. I am not sure why.
 
 Warnings about the data: 
 1. Depreciation is not calculated... because most companies to not share "Gross, property plant and equipment" on their balance sheets. It is defaulted at 40%, much higher than most companies actually depreciate their equipment. You can calculate this by dividing total "Depreciation" from cash flow sheet by "Gross, property plant and equipment" usually provided in the actual annual 10k.
