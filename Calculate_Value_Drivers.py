@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-import get_stock_data
+from get_stock_data import get_stock_data
 import csv
 
 class Calculate_Value_Drivers(object):
@@ -73,7 +73,7 @@ class Calculate_Value_Drivers(object):
 		self.BS.replace("NaN", 0, inplace = True)
 
 		self.latest_year = self.BS.columns.values[-1][0:4]
-		self.years = self.BS.columns.values[1:]
+		self.years = self.BS.columns.values[6:]
 
 		self.IS = np.array(self.IS)
 		self.BS = np.array(self.BS)
@@ -91,7 +91,7 @@ class Calculate_Value_Drivers(object):
 
 		self.calculate_sales_growth()
 		self.calculate_operating_exp_to_sales()
-		self.value_drivers_dict["Depreciation"] = .40
+		self.value_drivers_dict["Depreciation"] = .30
 		#self.calculate_depreciation()
 		self.calculate_operating_assets_to_sales()
 		self.calculate_operating_liabilities_to_sales()
@@ -99,11 +99,11 @@ class Calculate_Value_Drivers(object):
 		self.calculate_latest_debt()
 		self.interest_paid_on_debt()
 		#self.calculate_tax_rate()
-		self.value_drivers_dict["Tax Rate"] = .21
+		self.value_drivers_dict["Tax Rate"] = .15
 		self.last_ONWC = 0
 		self.calculate_ONWC()
 
-		self.raw_stock_data = get_stock_data.parse(self.ticker)
+		self.raw_stock_data = get_stock_data(self.ticker)
 		self.calculate_shares_outstanding()
 		self.calculate_cost_of_equity()
 		self.calculate_WACC()
@@ -142,7 +142,7 @@ class Calculate_Value_Drivers(object):
 			format(item))
 				return [0]*len(self.BS[1])
 
-			if(item == "Total current liabilities"):
+			if(item == "Total Current Liabilities"):
 				current_liab = ["Short-term borrowing",
 				"Payables and accrued expenses",
 				"Taxes payable"]
@@ -190,7 +190,7 @@ class Calculate_Value_Drivers(object):
 	def _generate_index_lists(self):
 		for r,rows in enumerate(self.IS,0):
 			if(rows[0] == "Total net revenue"):
-				self.sheet_index["IS"]["Revenue"] = r
+				self.sheet_index["IS"]["Business Revenue"] = r
 			self.sheet_index["IS"].update({rows[0] : r})
 		for r,rows in enumerate(self.CF,0):
 			self.sheet_index["CF"].update({rows[0] : r})
@@ -199,7 +199,7 @@ class Calculate_Value_Drivers(object):
 
 	def average_rate_of_change(self, row):
 		rates = []
-		for y,year in enumerate(row[1:-1], 0):
+		for y,year in enumerate(row[6:-1], 0):
 			if(y == 0):
 				previous_year = year
 				continue
@@ -210,7 +210,7 @@ class Calculate_Value_Drivers(object):
 		return np.average(rates)
 
 	def calculate_sales_growth(self):
-		rev = self.IS[self.sheet_index["IS"]["Revenue"]]
+		rev = self.IS[self.sheet_index["IS"]["Business Revenue"]]
 		sales_growth = self.average_rate_of_change(rev)
 
 		self.value_drivers_dict["Sales Growth"] = round(sales_growth, 4)
@@ -220,14 +220,11 @@ class Calculate_Value_Drivers(object):
 		'''excluding depreciation from operating expenses,
 		average((cost of revenue + total operating expenses)/sales)'''
 		yearly = []
-		for year in range(1,6):
-			cor = self.get_IS_item("Cost of revenue", year)
-			op_costs = self.get_IS_item("Total costs and expenses", year)
-			rev = self.get_IS_item("Revenue", year)
-			yearly.append(\
-			(cor + \
-			op_costs) / \
-			rev)
+		for year in range(6,11):
+			cor = self.get_IS_item("Cost of Revenue", year)
+			#op_costs = self.get_IS_item("Total costs and expenses", year)
+			rev = self.get_IS_item("Business Revenue", year)
+			yearly.append((cor) / rev)
 		print("Operating Expenses to Sales:{}".format(np.average(yearly)))
 		self.value_drivers_dict["Operating Expenses to Sales"] =\
 		round(np.average(yearly), 4)
@@ -249,10 +246,10 @@ class Calculate_Value_Drivers(object):
 	def calculate_operating_assets_to_sales(self):
 		yearly = []
 
-		for year in range(1,6):
-			rec = self.get_BS_item("Receivables", year)
+		for year in range(6,11):
+			rec = self.get_BS_item("Trade and Other Receivables, Current", year)
 			inv = self.get_BS_item("Inventories", year)
-			rev = self.get_IS_item("Revenue", year)
+			rev = self.get_IS_item("Business Revenue", year)
 			value_driver = (rec + inv)
 
 			yearly.append(value_driver/rev)
@@ -262,9 +259,9 @@ class Calculate_Value_Drivers(object):
 
 	def calculate_operating_liabilities_to_sales(self):
 		yearly = []
-		for year in range(1,6):
-			tc_liab = self.get_BS_item("Total current liabilities", year)
-			rev = self.get_IS_item("Revenue", year)
+		for year in range(6,11):
+			tc_liab = self.get_BS_item("Total Current Liabilities", year)
+			rev = self.get_IS_item("Business Revenue", year)
 			yearly.append(tc_liab/rev)
 		print("Operating Liabilities to Sales: {}".format(np.average(yearly)))
 		self.value_drivers_dict["Operating Current Liabilities to Sales"] =\
@@ -272,10 +269,14 @@ class Calculate_Value_Drivers(object):
 
 	def capital_expenditure_to_sales(self):
 		yearly = []
-		for year in range(1,6):
+		for year in range(6,11):
+            
 			ce = self.get_CF_item\
-			("Capital expenditure", year, make_positive = True)
-			rev = self.get_IS_item("Revenue", year)
+			("Capital Expenditure, Reported", year, make_positive = True)
+			if ce == 0:
+				ce = self.get_CF_item\
+				("Purchase/Sale and Disposal of Property, Plant and Equipment, Net", year, make_positive = True)
+			rev = self.get_IS_item("Business Revenue", year)
 			yearly.append(ce/rev)
 		print("Capital Expenditure to Sales: {}".format(np.average(yearly)))
 		self.value_drivers_dict["Capital Expenditure to Sales"] = \
@@ -287,9 +288,9 @@ class Calculate_Value_Drivers(object):
 	def interest_paid_on_debt(self):
 		rates = []
 		try:
-			ltd = self.get_BS_item("Long-term debt")[1:6]
+			ltd = self.get_BS_item("Long Term Debt")[6:11]
 			for y,year in enumerate(ltd, 0):
-				int_ex = self.get_IS_item("Interest expense",y+1)
+				int_ex = self.get_IS_item("Interest Expense Net of Capitalized Interest",y+5+1)
 				if(y == 0):
 					previous_year = year
 					continue
@@ -315,7 +316,7 @@ class Calculate_Value_Drivers(object):
 		yearly = []
 		tx_prv = self.get_IS_item("Provision for income taxes")
 		ebt = self.get_IS_item("Income before income taxes")
-		for year in range(1,6):
+		for year in range(6,10):
 			if(tx_prv[year]<0):
 				yearly.append((-tx_prv[year]) /ebt[year])
 			else:
@@ -325,13 +326,13 @@ class Calculate_Value_Drivers(object):
 
 	def calculate_ONWC(self):
 		yearly = []
-		for year in range(1,6):
-			rec = self.get_BS_item("Receivables", year)
+		for year in range(6,11):
+			rec = self.get_BS_item("Trade and Other Receivables, Current", year)
 			inv = self.get_BS_item("Inventories", year)
-			tcl = self.get_BS_item("Total current liabilities", year)
-			rev = self.get_IS_item("Revenue", year)
+			tcl = self.get_BS_item("Total Current Liabilities", year)
+			rev = self.get_IS_item("Business Revenue", year)
 			yearly.append(((rec + inv) - tcl)/ rev)
-			if(year == 5):
+			if(year == 10):
 			   self.value_drivers_dict["Latest ONWC"] = (rec + inv) - tcl
 		print("Operating Net Working Capital to Sales: {}".\
 		format(np.average(yearly)))
@@ -339,7 +340,7 @@ class Calculate_Value_Drivers(object):
 
 	def calculate_latest_debt(self):
 		try:
-			lt = self.BS[self.sheet_index["BS"]["Long-term debt"]][-1]
+			lt = self.BS[self.sheet_index["BS"]["Long Term Debt"]][-1]
 			print("Latest Long-term Debt: {}".format(lt))
 			self.value_drivers_dict["Latest Long-term debt"] = round(lt, 4)
 		except KeyError:
@@ -347,29 +348,10 @@ class Calculate_Value_Drivers(object):
 
 	def calculate_shares_outstanding(self):
 		'''Market Cap / share price '''
-		try:
-			market_cap = self.raw_stock_data["Market Cap"]
-		except:
-			self.value_drivers_dict["Shares outstanding"] = 0
-			return
-		if(market_cap[-1] == "B"):
-			market_cap = int(float(market_cap[0:-1])*1000000000)
-		elif(market_cap[-1] == "M"):
-			market_cap = int(float(market_cap[0:-1])*1000000)
-		elif(market_cap[-1]=="T"):
-			#account for trillion dollar market cap companies
-			market_cap = int(float(market_cap[0:-1])*1000000000000)
-		try:
-			price = float(self.raw_stock_data["Open"].replace(",",""))
-		except:
+		self.value_drivers_dict["Shares outstanding"] = self.get_IS_item("Diluted Weighted Average Shares Outstanding", -1)
+		price = float(self.raw_stock_data["Open"])
+		market_cap = self.get_IS_item("Diluted Weighted Average Shares Outstanding", -1) *price
 
-			self.value_drivers_dict["Shares outstanding"] = 0
-			return
-
-		if str(type(market_cap)) != "<class 'str'>":
-			self.value_drivers_dict["Shares outstanding"] = int(market_cap/price)
-		else:
-			self.value_drivers_dict["Shares outstanding"] = 0
 		print("Shares Outstanding : {}".\
 		format(self.value_drivers_dict["Shares outstanding"]))
 
@@ -397,8 +379,8 @@ class Calculate_Value_Drivers(object):
 		'''(Cost of debt *((Debt / (Equity + Debt)) * (1-Tax rate)))
 		+ (Cost of equity)*((equity)/(equity + Debt))'''
 		try:
-			current_price = float(self.raw_stock_data["Open"].replace(",", ""))
-			self.value_drivers_dict["Current Share Price"] = current_price
+			current_price = self.raw_stock_data["Open"]
+			self.value_drivers_dict["Current Share Price"] = self.raw_stock_data["Open"]
 			cost_debt = self.value_drivers_dict["Cost of debt"]
 			cost_equity = self.value_drivers_dict["Cost of equity"]
 			lt_debt = self.get_BS_item("Long-term debt", -1)
@@ -424,9 +406,9 @@ class Calculate_Value_Drivers(object):
 		dividend_rate = []
 		dividend_growth = []
 		last_div = 0
-		for y,year in enumerate(self.years,1):
-			div = self.get_CF_item("Dividend paid", y, make_positive = True)
-			ni = self.get_IS_item("Net income", y)
+		for y,year in enumerate(self.years,6):
+			div = self.get_CF_item("Cash Dividends Paid", y, make_positive = True)
+			ni = self.get_IS_item("Net Income after Extraordinary Items and Discontinued Operations", y)
 
 			dividend_rate.append(div/ni)
 
@@ -444,13 +426,13 @@ class Calculate_Value_Drivers(object):
 		self.value_drivers_dict["Dividend Rate"] = np.average(dividend_rate)
 		self.value_drivers_dict["Dividend Growth Rate"] = \
 		np.average(dividend_growth)
-		#for year in range(1,6):
+		#for year in range(6,10):
 
 	def calculate_average_stock_repurchase(self):
 		stock_repurchase = []
 		for y,year in enumerate(self.years,1):
 			spent = \
-			self.get_CF_item("Common stock repurchased",y,make_positive = True)
+			self.get_CF_item("Payments for Common Stock",y,make_positive = True)
 			stock_repurchase.append(spent)
 		self.value_drivers_dict["Annual Stock Repurchase"] = \
 			np.average(stock_repurchase)
@@ -465,7 +447,7 @@ class Calculate_Value_Drivers(object):
 
 	def write_to_csv(self):
 		with open\
-		("{}/{} Value Drivers.csv".format(self.ticker, self.ticker), "w") as f:
+		("{}/ValueDrivers.csv".format(self.ticker, self.ticker), "w") as f:
 			writer = csv.writer(f, lineterminator='\n')
 
 			for driver in self.value_drivers_list:

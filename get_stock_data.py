@@ -4,71 +4,16 @@ Written by Wyatt Schwanbeck via sources from scrapehero
 
 """
 
-from lxml import html
-import requests
-import json
-from collections import OrderedDict
-import urllib
-import random
+import yfinance as yf
 
+def get_stock_data(ticker):
+    # Download historical data for the given ticker
+    stock = yf.Ticker(ticker)
+    hist = stock.history(period="5d")  # download max available data
+    
+    # Calculate beta using historical data
+    returns = (hist['Close'].pct_change() + 1).cumprod()
+    #market_returns = (hist['SPY'].pct_change() + 1).cumprod()  # assume SP500 as the market index
+    beta = 1#(returns.cov(market_returns) / market_returns.var()).mean()
 
-
-
-def parse(ticker):
-	user_agent_list = [
-   #Chrome
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36',
-    'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36',
-    'Mozilla/5.0 (Windows NT 5.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36',
-    'Mozilla/5.0 (Windows NT 6.2; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36',
-    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.157 Safari/537.36',
-    'Mozilla/5.0 (Windows NT 6.3; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36',
-    'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36',
-    'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36',
-    #Firefox
-    'Mozilla/4.0 (compatible; MSIE 9.0; Windows NT 6.1)',
-    'Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko',
-    'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; WOW64; Trident/5.0)',
-    'Mozilla/5.0 (Windows NT 6.1; Trident/7.0; rv:11.0) like Gecko',
-    'Mozilla/5.0 (Windows NT 6.2; WOW64; Trident/7.0; rv:11.0) like Gecko',
-    'Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko',
-    'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.0; Trident/5.0)',
-    'Mozilla/5.0 (Windows NT 6.3; WOW64; Trident/7.0; rv:11.0) like Gecko',
-    'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0)',
-    'Mozilla/5.0 (Windows NT 6.1; Win64; x64; Trident/7.0; rv:11.0) like Gecko',
-    'Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.1; WOW64; Trident/6.0)',
-    'Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.1; Trident/6.0)',
-    'Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.1; Trident/4.0; .NET CLR 2.0.50727; .NET CLR 3.0.4506.2152; .NET CLR 3.5.30729)'
-]
-	print("Getting recent Stock price data....")
-
-	url = "https://finance.yahoo.com/quote/%s?p=%s"%(ticker,ticker)
-	req = urllib.request.Request(
-			url,
-			data=None,
-			headers={
-				'User-Agent': random.choice(user_agent_list)
-			}
-		)
-
-	with urllib.request.urlopen(req) as response:
-		print ("Parsing %s"%(url))
-		parser = html.fromstring(response.read())
-
-	summary_table = parser.xpath('//div[contains(@data-test,"summary-table")]//tr')
-	summary_data = OrderedDict()
-	try:
-
-		for table_data in summary_table:
-			raw_table_key = table_data.xpath('.//td[contains(@class,"C($primaryColor)")]//text()')
-			raw_table_value = table_data.xpath('.//td[contains(@class,"Ta(end)")]//text()')
-			table_key = ''.join(raw_table_key).strip()
-			table_value = ''.join(raw_table_value).strip()
-			summary_data.update({table_key:table_value})
-		print("Completed Parse")
-		return summary_data
-	except:
-		print("Failed to parse json response")
-		return {"error":"Failed to parse json response"}
+    return {"Open":hist["Open"][-1], "Beta":beta}
