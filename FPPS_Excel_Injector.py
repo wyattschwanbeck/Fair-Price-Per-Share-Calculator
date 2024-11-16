@@ -14,11 +14,11 @@ class FPPS_Excel_Injector(object):
         self.VD = calculated_value_drivers
         self.workbook = Workbook(excel_file)
         self.statements = \
-        {"Value Drivers" : dict(), \
-        "Income Statement": dict(),\
-        "Balance Sheet" : dict(), \
-        "Cash Flow" : dict(), \
-        "Projection" : dict()}
+        {"incomeStatement": dict(),\
+        "balanceSheet" : dict(), \
+        "cashFlow" : dict(), \
+        "Projection" : dict(),
+        "ValueDrivers" : dict()}
 
         self.statement_loc = statement_loc
 
@@ -33,80 +33,80 @@ class FPPS_Excel_Injector(object):
     
     def load_financial_data_to_sheets(self):
         statement_loc = self.statement_loc
-        for csvfile in os.listdir(statement_loc):
-            if(csvfile[-4:] == ".csv"):     
-                print("Working on importing data to excel for " + csvfile)
-                excel_sheet_name = "'{}'".format(csvfile[0:-4])
-                sheet_name = csvfile[0:-4]             
-                current_statement = self.get_statement_key(sheet_name)
-                #worksheet with csv file name                
-                worksheet = self.workbook.add_worksheet(sheet_name)
-                #using openpyxl now
-                #worksheet = self.workbook.create_sheet(sheet_name)          
-                with open(statement_loc +csvfile, 'r') as f:
-                    reader = csv.reader(f)
-                    row_count = 0
-                    for r, row in enumerate(reader):
-                        if(len(row) == 0):
-                            continue
-                        column_count = 0
-                        row_count += 1                
-                        for c, col in enumerate(row):
-                            column_count += 1
-                            if(c==0):
-                                key_name = col
-                            self.load_statement_meta_data(current_statement,
-                                                     excel_sheet_name,
-                                                     col,
-                                                     key_name,       
-                                                     column_count,
-                                                     row_count,
-                                                     c)                            
-                            #check for negative and decimal numbers
-                            if("." in col or "-"):
-                                try:
-                                     #write the csv file content into it
-                                    worksheet.write(r, c, float(col))
-                                except:
-                                    worksheet.write(r, c, str(col))
-                            elif(col.isdigit()):
-                                worksheet.write(r,c,int(col))
-                            else:
-                                worksheet.write(r,c,str(col))
-                              
-                if(current_statement == "Value Drivers"):
-                    #self.workbook.add_vba_project("./vbaProject.bin")
-                    #worksheet.insert_button("C1", {"macro" : "prettify",
-                    #                               "caption" : "Format Data",
-                    #                               "width" : 100,
-                    #                               "height" : 30})
-                    
-                    #insert COE formula to value drivers
-                    coe = self.cost_of_equity_formula()
-                    coe_addr = self.get_st_item\
-                    ("Value Drivers", "Cost of equity", 1).split("!")[-1]                
-                    worksheet.write_formula(coe_addr,str(coe[1]))                   
-                    
-                    #insert WACC formula to value drivers
-                    wacc = self.wacc_formula()
-                    wacc_addr = self.get_st_item\
-                    ("Value Drivers", "WACC", 1).split("!")[-1]                      
-                    worksheet.write_formula(wacc_addr,str(wacc[1]))
-                    
-                    projectionRow = r+3
-                    self.insert_projection_formulas(projectionRow)
-                    
-                    for r_2,row in enumerate(self.function_frame,projectionRow):
-                        if(row is None):
-                            continue
-                            
-                        for c, col in enumerate(row,1):
-                            if(r_2 == projectionRow):
-                                worksheet.write(r_2,c,str(col))
-                            elif(c == 1):
-                                worksheet.write(r_2,c,str(col))
-                            else:
-                                worksheet.write_formula(r_2, c, str(col))
+        files = ["incomeStatement", "cashFlow", "balanceSheet", "ValueDrivers"]
+        for csvfile in files:
+            print("Working on importing data to excel for " + csvfile)
+            excel_sheet_name = csvfile
+            sheet_name = csvfile             
+            current_statement = self.get_statement_key(sheet_name)
+            #worksheet with csv file name                
+            worksheet = self.workbook.add_worksheet(sheet_name)
+            #using openpyxl now
+            #worksheet = self.workbook.create_sheet(sheet_name)          
+            with open(statement_loc +csvfile + ".csv", 'r') as f:
+                reader = csv.reader(f)
+                row_count = 0
+                for r, row in enumerate(reader):
+                    if(len(row) == 0):
+                        continue
+                    column_count = 0
+                    row_count += 1                
+                    for c, col in enumerate(row):
+                        column_count += 1
+                        if(c==0):
+                            key_name = col
+                        self.load_statement_meta_data(current_statement,
+                                                 excel_sheet_name,
+                                                 col,
+                                                 key_name,       
+                                                 column_count,
+                                                 row_count,
+                                                 c)                            
+                        #check for negative and decimal numbers
+                        if("." in col or "-"):
+                            try:
+                                 #write the csv file content into it
+                                worksheet.write(r, c, float(col))
+                            except:
+                                worksheet.write(r, c, str(col))
+                        elif(col.isdigit()):
+                            worksheet.write(r,c,int(col))
+                        else:
+                            worksheet.write(r,c,str(col))
+                          
+            if(current_statement == "ValueDrivers"):
+                #self.workbook.add_vba_project("./vbaProject.bin")
+                #worksheet.insert_button("C1", {"macro" : "prettify",
+                #                               "caption" : "Format Data",
+                #                               "width" : 100,
+                #                               "height" : 30})
+                
+                #insert COE formula to value drivers
+                coe = self.cost_of_equity_formula()
+                coe_addr = self.get_st_item\
+                ("ValueDrivers", "Cost of equity", 1).split("!")[-1]                
+                worksheet.write_formula(coe_addr,str(coe[1]))                   
+                
+                #insert WACC formula to value drivers
+                wacc = self.wacc_formula()
+                wacc_addr = self.get_st_item\
+                ("ValueDrivers", "WACC", 1).split("!")[-1]                      
+                worksheet.write_formula(wacc_addr,str(wacc[1]))
+                
+                projectionRow = r+3
+                self.insert_projection_formulas(projectionRow)
+                
+                for r_2,row in enumerate(self.function_frame,projectionRow):
+                    if(row is None):
+                        continue
+                        
+                    for c, col in enumerate(row,1):
+                        if(r_2 == projectionRow):
+                            worksheet.write(r_2,c,str(col))
+                        elif(c == 1):
+                            worksheet.write(r_2,c,str(col))
+                        else:
+                            worksheet.write_formula(r_2, c, str(col))
                     
     def load_statement_meta_data(self,
                             current_statement, excel_sheet_name,item,item_key,
@@ -242,11 +242,11 @@ class FPPS_Excel_Injector(object):
         (Next Year's Annual Dividend / Current Stock Price) + Dividend Growth Rate'''
         
         coe = ["Cost of Equity"]             
-        beta = self.get_st_item("Value Drivers", "Beta", 1)        
-        rf = self.get_st_item("Value Drivers", "Risk free rate", 1)
-        dg = self.get_st_item("Value Drivers", "Dividend Growth Rate", 1)
-        market_return = self.get_st_item("Value Drivers", "Market Return", 1)        
-        share_price = self.get_st_item("Value Drivers","Current Share Price",1)
+        beta = self.get_st_item("ValueDrivers", "Beta", 1)        
+        rf = self.get_st_item("ValueDrivers", "Risk free rate", 1)
+        dg = self.get_st_item("ValueDrivers", "Dividend Growth Rate", 1)
+        market_return = self.get_st_item("ValueDrivers", "Market Return", 1)        
+        share_price = self.get_st_item("ValueDrivers","Current Share Price",1)
         
         coe.append("if({}=0,(D43/{})+{} ,{} + ({}*({} - {})))".\
         format(beta, share_price, dg, rf, beta, market_return, rf))
@@ -257,17 +257,17 @@ class FPPS_Excel_Injector(object):
         (cost_equity)*((total_equity)/(total_equity + lt_debt))'''
         wacc = ["WACC"]
         st = self.statements
-        cost_debt = st["Value Drivers"]["Cost of debt"][1]
+        cost_debt = st["ValueDrivers"]["Cost of debt"][1]
         try:        
-            lt_debt = st["Balance Sheet"]["Long-term debt"][-1]
+            lt_debt = st["balanceSheet"]["Long Term Debt"][-1]
         except KeyError:
             lt_debt = "0"
         #total_equity = "({}/1000000)*{}".format\
         total_equity = "({})*{}".format\
-        (st["Value Drivers"]["Shares outstanding"][1], 
-         st["Value Drivers"]["Current Share Price"][1])
-        tax_rate = st["Value Drivers"]["Tax Rate"][1]
-        cost_equity = st["Value Drivers"]["Cost of equity"][1]
+        (st["ValueDrivers"]["Shares outstanding"][1], 
+         st["ValueDrivers"]["Current Share Price"][1])
+        tax_rate = st["ValueDrivers"]["Tax Rate"][1]
+        cost_equity = st["ValueDrivers"]["Cost of equity"][1]
         
         wacc.append(\
         '({} *(({} / ({} + {})) * (1-{}))) + ({})*(({})/({} + {}))'.format\
@@ -279,8 +279,8 @@ class FPPS_Excel_Injector(object):
     
     def project_revenue_formula(self, row_start):
         projected_revenue = \
-        ["Revenue", self.get_st_item("Income Statement","Revenue",-1)]
-        value_driver = self.get_st_item("Value Drivers","Sales Growth",1)
+        ["Business Revenue", self.statements["incomeStatement"]["Business Revenue"][9]]
+        value_driver = self.get_st_item("ValueDrivers","Sales Growth",1)
         
         
         for y,year in enumerate(self.years[2:], 2):
@@ -296,13 +296,12 @@ class FPPS_Excel_Injector(object):
         
     def project_operating_expenses_formula(self, row_start):
         op_ex = self.get_st_item\
-        ("Income Statement","Total operating expenses",-1)   
-        total_cor = self.get_st_item\
-        ("Income Statement", "Cost of revenue",-1)
-        total_expenses = "{} + {}".format(op_ex, total_cor)      
+        ("incomeStatement","Cost of Revenue",9)   
+        
+        total_expenses = "{}".format(op_ex)      
         projected_expenses = ["Operating Expenses", total_expenses]
         value_driver = self.get_st_item\
-        ("Value Drivers","Operating Expenses to Sales",1)
+        ("ValueDrivers","Operating Expenses to Sales",1)
         for y,year in enumerate(self.years[2:], 2):
             current_col = self.convert_num_to_chars(y+2)            
             projected_expenses.append\
@@ -313,10 +312,10 @@ class FPPS_Excel_Injector(object):
     def project_cap_ex_formula(self, row_start):
         projected_cap_ex = \
         ["Capital Expenditure", \
-        "-{}".format(self.get_st_item("Cash Flow","Capital expenditure",-1))]
+        "{}+{}".format(self.get_st_item("cashFlow","Purchase/Sale and Disposal of Property, Plant and Equipment, Net",9), self.get_st_item("cashFlow","Purchase/Sale of Business, Net",9))]
         
         value_driver = self.get_st_item\
-        ("Value Drivers","Capital Expenditure to Sales",1)
+        ("ValueDrivers","Capital Expenditure to Sales",1)
 
         for y,year in enumerate(self.years[2:], 2):
             current_col = self.convert_num_to_chars(y+2)            
@@ -329,9 +328,9 @@ class FPPS_Excel_Injector(object):
         projected_dep = \
         ["Depreciation", \
         "{}".format\
-        (self.get_st_item("Cash Flow","Depreciation & amortization",-1))]
+        (self.get_st_item("cashFlow","Depreciation, Amortization and Depletion, Non-Cash Adjustment",9))]
         
-        value_driver = self.statements["Value Drivers"]["Depreciation"][1]
+        value_driver = self.statements["ValueDrivers"]["Depreciation"][1]
         for y,year in enumerate(self.years[2:], 2):
             left_col = self.convert_num_to_chars(y+1)       
             projected_dep.append\
@@ -346,20 +345,20 @@ class FPPS_Excel_Injector(object):
         projected_EBIT = \
         ["EBIT"]
 
-        for y,year in enumerate(self.years[1:], 1):
-            current_col = self.convert_num_to_chars(y+2)       
+        for y,year in enumerate(self.years[2:], 2):
+            current_col = self.convert_num_to_chars(y+1)       
             projected_EBIT.append\
-            (("{} - {} - {}".format(current_col + str(row_start-2), \
+            (("{} + {} - {}".format(current_col + str(row_start-2), \
             current_col + str(row_start-1), (current_col)+str(row_start) )))
         
         return projected_EBIT
         
     def project_tax_formula(self, row_start):
         project_taxes = ["Taxes"]
-        vd = self.statements["Value Drivers"]["Tax Rate"][1]
+        vd = self.statements["ValueDrivers"]["Tax Rate"][1]
         
-        for y,year in enumerate(self.years[1:], 1):
-            current_col = self.convert_num_to_chars(y+2)
+        for y,year in enumerate(self.years[2:], 2):
+            current_col = self.convert_num_to_chars(y+1)
             project_taxes.append\
             ("If({}>0,{} * {}, 0)".format\
             (current_col + str(row_start), vd, current_col + str(row_start)))
@@ -379,9 +378,9 @@ class FPPS_Excel_Injector(object):
         
     def project_ONWC_formula(self, row_start):
         project_ONWC = ["ONWC", \
-        self.statements["Value Drivers"]["Latest ONWC"][1]]
+        self.statements["ValueDrivers"]["Latest ONWC"][1]]
 
-        vd = self.statements["Value Drivers"]["ONWC to Sales"][1]
+        vd = self.statements["ValueDrivers"]["ONWC to Sales"][1]
         
         for y,year in enumerate(self.years[2:], 2):
             current_col = self.convert_num_to_chars(y+2)
@@ -404,7 +403,7 @@ class FPPS_Excel_Injector(object):
     def project_FCF_formula(self, row_start):
         project_FCF = ["Free Cash Flow", 0]
         share_buyback = \
-        self.get_st_item("Value Drivers","Annual Stock Repurchase",1)        
+        self.get_st_item("ValueDrivers","Annual Stock Repurchase",1)        
         
         for y,year in enumerate(self.years[2:],2):
             current_col = self.convert_num_to_chars(y+2)
@@ -417,8 +416,8 @@ class FPPS_Excel_Injector(object):
         
     def project_terminal_formula(self, row_start):
         project_term = ["Terminal Value"]
-        ltg = self.statements["Value Drivers"]["Long Term Growth"][1]
-        wacc = self.statements["Value Drivers"]["WACC"][1]
+        ltg = self.statements["ValueDrivers"]["Long Term Growth"][1]
+        wacc = self.statements["ValueDrivers"]["WACC"][1]
         for y,year in enumerate(self.years[1:],1):
             current_col = self.convert_num_to_chars(y+2)            
             if(y < len(self.years)-1):
@@ -442,7 +441,7 @@ class FPPS_Excel_Injector(object):
         
     def project_PV_FCFs(self, row_start):
         project_PV_FCF = ["Present Value Cash Flows"]
-        rf = self.get_st_item("Value Drivers","Risk free rate",1)
+        rf = self.get_st_item("ValueDrivers","Risk free rate",1)
         
         for y,year in enumerate(self.years[1:],1):
             end_col = self.convert_num_to_chars(len(self.years[1:])+2)   
@@ -458,9 +457,9 @@ class FPPS_Excel_Injector(object):
     def project_enterprise_value(self, row_start):
         project_ev = ["Enterprise Value"]
         
-        lt_debt = self.get_st_item("Balance Sheet","Long-term debt",-1)
+        lt_debt = self.get_st_item("balanceSheet","Long Term Debt and Capital Lease Obligation",9)
         st_inv = self.get_st_item\
-        ("Balance Sheet","Short-term investments",index=False)
+        ("balanceSheet","Current Debt and Capital Lease Obligation",index=False)
         
         if st_inv=="0":
             avg_st_inv = "0"
@@ -468,7 +467,7 @@ class FPPS_Excel_Injector(object):
             avg_st_inv = "AVERAGE({}:{})".format(st_inv[1], st_inv[-1])  
 
         cash = self.get_st_item\
-        ("Balance Sheet","Cash and cash equivalents",-1)
+        ("balanceSheet","Cash and Cash Equivalents",9)
         
         for y,year in enumerate(self.years[1:],1): 
             current_col = self.convert_num_to_chars(y+2)
@@ -484,7 +483,7 @@ class FPPS_Excel_Injector(object):
         #"({}/1000000)".format\        
         outstanding_shares = \
             "({})".format\
-            (self.get_st_item("Value Drivers","Shares outstanding",1))
+            (self.get_st_item("ValueDrivers","Shares outstanding",1))
         
         for y,year in enumerate(self.years[1:],1): 
             current_col = self.convert_num_to_chars(y+2)
@@ -499,11 +498,11 @@ class FPPS_Excel_Injector(object):
         #"({}/1000000)"          
         outstanding_shares = \
             "({})".format\
-            (self.get_st_item("Value Drivers","Shares outstanding",1))
+            (self.get_st_item("ValueDrivers","Shares outstanding",1))
         
-        div_rate = self.get_st_item("Value Drivers","Dividend Rate",1)
-        div_growth = self.get_st_item("Value Drivers","Dividend Growth Rate",1)
-        div_paid = self.get_st_item("Cash Flow", "Dividend paid", 1)
+        div_rate = self.get_st_item("ValueDrivers","Dividend Rate",1)
+        div_growth = self.get_st_item("ValueDrivers","Dividend Growth Rate",1)
+        div_paid = self.get_st_item("cashFlow", "Cash Dividends Paid", -1)
         dividends_paid = \
         ["Dividends per share", "-{}/{}".format(div_paid, outstanding_shares)]
         
@@ -518,9 +517,9 @@ class FPPS_Excel_Injector(object):
         return dividends_paid
         
     def project_shares_outstanding(self, row_start):
-        vd = self.get_st_item("Value Drivers","Shares outstanding",1)       
-        sp = self.get_st_item("Value Drivers", "Current Share Price", 1)
-        bb = self.get_st_item("Value Drivers", "Annual Stock Repurchase", 1)
+        vd = self.get_st_item("ValueDrivers","Shares outstanding",1)       
+        sp = self.get_st_item("ValueDrivers", "Current Share Price", 1)
+        bb = self.get_st_item("ValueDrivers", "Annual Stock Repurchase", 1)
         #"({}/1000000)".format\         
         outstanding_shares = \
             "({})".format\
