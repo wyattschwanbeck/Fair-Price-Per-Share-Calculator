@@ -3,13 +3,14 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 
 <b>What it does:</b>
-1. Calculate Value Drivers
+1. Downloads Financial Reports associated with Ticker from Morningstar  
+2. Calculate Value Drivers - Sales Growth, Operating Assets/Liabilities to Sales, Capital Expenditure, Cost of Equity, Cost of Debt.
 2. Estimate Weighted Average Cost of Capital 
 3. Project future potential financial performance 
     -Estimates share price based on long term growth potential (default = 1.25%) of yearly free cash flows
 
 <b>To Use:</b>
-1. download package
+1. download packages in requirements
 2. type in desired ticker symbol (line 13 on main.py)
 3. run main.py using a Python 3.5
 
@@ -26,7 +27,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
     pip install -r [Folder Path]/Fair-Price-Per-Share-Calculator/requirments.txt
 
 3. <b>Run main file:</b>
-    python <i>[Folder Path]</i>/Fair-Price-Per-Share-Calculator/main.py
+    python <i>[Folder Path]</i>/Fair-Price-Per-Share-Calculator/alt_main.py
 
 4. Enter the ticker desired ticker symbol.
 
@@ -41,3 +42,4 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 2. Data calls directly to the dict structs need to be removed and encapsulated for error handling.
 3. Comments need to be added to each class, functions, and variables within
 4. Being a better person.
+
