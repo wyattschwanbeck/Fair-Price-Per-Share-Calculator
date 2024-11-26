@@ -98,7 +98,10 @@ class Calculate_Value_Drivers(object):
         self.capital_expenditure_to_sales()
         self.calculate_latest_debt()
         self.interest_paid_on_debt()
-        self.calculate_tax_rate()
+        try:
+            self.calculate_tax_rate()
+        except:
+            self.value_drivers_dict["Tax Rate"] = .15
         #self.value_drivers_dict["Tax Rate"] = .15
         self.last_ONWC = 0
         self.calculate_ONWC()
@@ -209,8 +212,14 @@ class Calculate_Value_Drivers(object):
                 previous_year = latest_year
         return np.average(rates)
 
+    def get_revenue(self, index=False):
+        if "Business Revenue" in self.sheet_index["IS"].keys():    
+            rev = self.get_IS_item("Business Revenue",index)
+        else:
+            rev = self.get_IS_item("Total Revenue",index)
+        return rev
     def calculate_sales_growth(self):
-        rev = self.IS[self.sheet_index["IS"]["Business Revenue"]]
+        rev = self.get_revenue()
         sales_growth = self.average_rate_of_change(rev)
 
         self.value_drivers_dict["Sales Growth"] = round(sales_growth, 4)
@@ -223,7 +232,7 @@ class Calculate_Value_Drivers(object):
         for year in range(6,11):
             cor = self.get_IS_item("Cost of Revenue", year)
             #op_costs = self.get_IS_item("Total costs and expenses", year)
-            rev = self.get_IS_item("Business Revenue", year)
+            rev = self.get_revenue(year)
             yearly.append((cor) / rev)
         print("Operating Expenses to Sales:{}".format(np.average(yearly)))
         self.value_drivers_dict["Operating Expenses to Sales"] =\
@@ -249,7 +258,7 @@ class Calculate_Value_Drivers(object):
         for year in range(6,11):
             rec = self.get_BS_item("Trade and Other Receivables, Current", year)
             inv = self.get_BS_item("Inventories", year)
-            rev = self.get_IS_item("Business Revenue", year)
+            rev = self.get_revenue(year)
             value_driver = (rec + inv)
 
             yearly.append(value_driver/rev)
@@ -261,7 +270,7 @@ class Calculate_Value_Drivers(object):
         yearly = []
         for year in range(6,11):
             tc_liab = self.get_BS_item("Total Current Liabilities", year)
-            rev = self.get_IS_item("Business Revenue", year)
+            rev = self.get_revenue(year)
             yearly.append(tc_liab/rev)
         print("Operating Liabilities to Sales: {}".format(np.average(yearly)))
         self.value_drivers_dict["Operating Current Liabilities to Sales"] =\
@@ -276,7 +285,7 @@ class Calculate_Value_Drivers(object):
             if ce == 0:
                 ce = self.get_CF_item\
                 ("Purchase/Sale and Disposal of Property, Plant and Equipment, Net", year, make_positive = True)
-            rev = self.get_IS_item("Business Revenue", year)
+            rev = self.get_revenue(year)
             yearly.append(ce/rev)
         print("Capital Expenditure to Sales: {}".format(np.average(yearly)))
         self.value_drivers_dict["Capital Expenditure to Sales"] = \
@@ -306,7 +315,7 @@ class Calculate_Value_Drivers(object):
                         rates.append(0)
                     previous_year = latest_year
             print("Interest paid on Debt: {}".format(np.average(rates)))
-            self.value_drivers_dict["Cost of debt"] = np.average(rates)
+            self.value_drivers_dict["Cost of debt"] = -np.average(rates)
             return np.average(rates)
         except KeyError:
             print("Long Term Debt Not Found!")
@@ -331,7 +340,7 @@ class Calculate_Value_Drivers(object):
             cashEquiv = self.get_BS_item("Cash, Cash Equivalents and Short Term Investments", year)
             tcl = self.get_BS_item("Total Current Liabilities", year)
             currentDebt = self.get_BS_item("Current Debt",year)
-            rev = self.get_IS_item("Business Revenue", year)
+            rev = self.get_revenue(year)
             yearly.append(((currentAssets - cashEquiv) - (tcl-currentDebt))/ rev)
             if(year == 10):
                self.value_drivers_dict["Latest ONWC"] = (currentAssets - cashEquiv) - (tcl-currentDebt)

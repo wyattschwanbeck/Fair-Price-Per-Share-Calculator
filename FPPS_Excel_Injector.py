@@ -2,7 +2,7 @@ import csv, os
 #from openpyxl import Workbook
 from xlsxwriter.workbook import Workbook
 
-
+import pandas as pd
 
 class FPPS_Excel_Injector(object):
     def __init__(self, 
@@ -28,8 +28,9 @@ class FPPS_Excel_Injector(object):
         #Calculated but stored for addition into function frame for later        
         self.cap_ex = []
         
-        self.function_frame = []    
-    
+        self.function_frame = []
+        self.incomeStatement = pd.read_csv(statement_loc + "incomeStatement.csv")
+        
     
     def load_financial_data_to_sheets(self):
         statement_loc = self.statement_loc
@@ -171,9 +172,13 @@ class FPPS_Excel_Injector(object):
      
     
     def insert_projection_formulas(self, row_num):
-        years_to_project = self.years_to_project        
         
-        for years in range(0, int(years_to_project)+1):
+        #Handle TTM (Trailing Twelve Months) occurrance in reporting to project
+        years_to_project = self.years_to_project        
+        self.statements["Projection"].update\
+        ({"Years":["A"+str(row_num)]})
+        self.years.append(self.incomeStatement.columns[-1])
+        for years in range(1, int(years_to_project)+1):
             self.save_projection_meta_data("Years", row_num, years)
             self.years.append(int(self.VD.latest_year)+years)
             
@@ -276,10 +281,14 @@ class FPPS_Excel_Injector(object):
         
         return wacc
          
-    
+    def get_revenue(self, index):
+        if "Business Revenue" in self.statements["incomeStatement"].keys():
+            return self.get_st_item("incomeStatement", "Business Revenue", index)
+        else:
+            return self.get_st_item("incomeStatement", "Total Revenue", index)
     def project_revenue_formula(self, row_start):
         projected_revenue = \
-        ["Business Revenue", self.statements["incomeStatement"]["Business Revenue"][9]]
+        ["Business Revenue", self.get_revenue(-1)]
         value_driver = self.get_st_item("ValueDrivers","Sales Growth",1)
         
         
@@ -296,7 +305,7 @@ class FPPS_Excel_Injector(object):
         
     def project_operating_expenses_formula(self, row_start):
         op_ex = self.get_st_item\
-        ("incomeStatement","Cost of Revenue",9)   
+        ("incomeStatement","Cost of Revenue",-1)   
         
         total_expenses = "{}".format(op_ex)      
         projected_expenses = ["Operating Expenses", total_expenses]
@@ -328,7 +337,7 @@ class FPPS_Excel_Injector(object):
         projected_dep = \
         ["Depreciation", \
         "{}".format\
-        (self.get_st_item("cashFlow","Depreciation, Amortization and Depletion, Non-Cash Adjustment",9))]
+        (self.get_st_item("cashFlow","Depreciation, Amortization and Depletion, Non-Cash Adjustment",-1))]
         
         value_driver = self.statements["ValueDrivers"]["Depreciation"][1]
         for y,year in enumerate(self.years[2:], 2):
@@ -345,7 +354,7 @@ class FPPS_Excel_Injector(object):
         projected_EBIT = \
         ["EBIT"]
 
-        for y,year in enumerate(self.years[2:], 2):
+        for y,year in enumerate(self.years[1:], 2):
             current_col = self.convert_num_to_chars(y+1)       
             projected_EBIT.append\
             (("{} + {} - {}".format(current_col + str(row_start-2), \
@@ -357,7 +366,7 @@ class FPPS_Excel_Injector(object):
         project_taxes = ["Taxes"]
         vd = self.statements["ValueDrivers"]["Tax Rate"][1]
         
-        for y,year in enumerate(self.years[2:], 2):
+        for y,year in enumerate(self.years[1:], 2):
             current_col = self.convert_num_to_chars(y+1)
             project_taxes.append\
             ("If({}>0,{} * {}, 0)".format\
@@ -366,7 +375,7 @@ class FPPS_Excel_Injector(object):
         return project_taxes
         
     def project_NI_formula(self, row_start):
-        project_NI = ["Net Income"]
+        project_NI = ["Net Operating Income"]
         
         for y,year in enumerate(self.years[1:], 1):
             current_col = self.convert_num_to_chars(y+2)
