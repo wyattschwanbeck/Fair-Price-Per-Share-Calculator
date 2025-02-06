@@ -1,6 +1,7 @@
 import csv, os
 #from openpyxl import Workbook
 from xlsxwriter.workbook import Workbook
+from xlsxwriter.utility import cell_autofit_width
 
 import pandas as pd
 
@@ -23,18 +24,18 @@ class FPPS_Excel_Injector(object):
         self.statement_loc = statement_loc
 
         self.years = \
-        ["Projections derived from data downloaded from Morningstar.com"] 
+        ["Projections based on  \nFinancial Reports \nfrom Morningstar.com"] 
         self.years_to_project = years_to_project
         #Calculated but stored for addition into function frame for later        
         self.cap_ex = []
         
         self.function_frame = []
         self.incomeStatement = pd.read_csv(statement_loc + "incomeStatement.csv")
-        
-    
+
     def load_financial_data_to_sheets(self):
         statement_loc = self.statement_loc
         files = ["incomeStatement", "cashFlow", "balanceSheet", "ValueDrivers"]
+
         for csvfile in files:
             print("Working on importing data to excel for " + csvfile)
             excel_sheet_name = csvfile
@@ -42,8 +43,16 @@ class FPPS_Excel_Injector(object):
             current_statement = self.get_statement_key(sheet_name)
             #worksheet with csv file name                
             worksheet = self.workbook.add_worksheet(sheet_name)
-            #using openpyxl now
-            #worksheet = self.workbook.create_sheet(sheet_name)          
+            self.FORMAT_MONEY =  self.workbook.add_format({'num_format': '$#,##0.0'})
+            self.FORMAT_MONEY.set_num_format(5)
+            self.FORMAT_PCT = self.workbook.add_format()
+            self.FORMAT_PCT.set_num_format(10)
+            self.FORMAT_DEF = self.workbook.add_format()
+            self.FORMAT_DEF.set_num_format(37)
+            self.FORMAT_WRAP_TEXT = self.workbook.add_format()
+            self.FORMAT_WRAP_TEXT.set_text_wrap()
+        
+            #Loop through downloaded financial statements and add data       
             with open(statement_loc +csvfile + ".csv", 'r') as f:
                 reader = csv.reader(f)
                 row_count = 0
@@ -86,29 +95,43 @@ class FPPS_Excel_Injector(object):
                 coe = self.cost_of_equity_formula()
                 coe_addr = self.get_st_item\
                 ("ValueDrivers", "Cost of equity", 1).split("!")[-1]                
-                worksheet.write_formula(coe_addr,str(coe[1]))                   
+                worksheet.write_formula(coe_addr,str(coe[1]),self.FORMAT_PCT)                   
                 
                 #insert WACC formula to value drivers
                 wacc = self.wacc_formula()
                 wacc_addr = self.get_st_item\
                 ("ValueDrivers", "WACC", 1).split("!")[-1]                      
-                worksheet.write_formula(wacc_addr,str(wacc[1]))
+                worksheet.write_formula(wacc_addr,str(wacc[1]), self.FORMAT_PCT)
                 
                 projectionRow = r+3
                 self.insert_projection_formulas(projectionRow)
-                
+                function_index = 0
+                #function_frame contains a list of tuples containing formula strings for each row and 
+                #their respective format
                 for r_2,row in enumerate(self.function_frame,projectionRow):
                     if(row is None):
+                        function_index+=1
                         continue
+
+                    for c, col in enumerate(row[0],1):
                         
-                    for c, col in enumerate(row,1):
                         if(r_2 == projectionRow):
-                            worksheet.write(r_2,c,str(col))
+                            
+                            worksheet.write(r_2,c,str(col),self.FORMAT_WRAP_TEXT)
                         elif(c == 1):
-                            worksheet.write(r_2,c,str(col))
+                            
+                            worksheet.write(r_2, c,str(col))
                         else:
-                            worksheet.write_formula(r_2, c, str(col))
-                    
+                            worksheet.write_formula(r_2, c, str(col),row[1])
+                                                    
+                        # Find the maximum column width in pixels.
+                        max_width = cell_autofit_width(str(col))
+                        
+                        # Set the column width as if it was auto-fitted.
+                        worksheet.set_column_pixels(c, 0, max_width)
+                    function_index+=1
+                # Autofit the worksheet.
+            worksheet.autofit()
     def load_statement_meta_data(self,
                             current_statement, excel_sheet_name,item,item_key,
                             col_count,row_count,c):
@@ -184,60 +207,60 @@ class FPPS_Excel_Injector(object):
             
 
 
-        self.function_frame = [self.years]
+        self.function_frame = [(self.years,self.FORMAT_DEF)]
         #1
-        self.function_frame.append(self.project_revenue_formula(row_num +1))
+        self.function_frame.append((self.project_revenue_formula(row_num +1), self.FORMAT_MONEY))
         #2        
         self.function_frame.append\
-        (self.project_operating_expenses_formula(row_num+2))
+        ((self.project_operating_expenses_formula(row_num+2), self.FORMAT_MONEY))
         
         #need to calculate cap ex to project depreciation
         self.cap_ex = self.project_cap_ex_formula(row_num+8)
         #3       
-        self.function_frame.append(self.project_depreciation_formula(row_num+3))
+        self.function_frame.append((self.project_depreciation_formula(row_num+3), self.FORMAT_MONEY))
         #4        
 
         #5
-        self.function_frame.append(self.project_EBIT_formula(row_num+4))
+        self.function_frame.append((self.project_EBIT_formula(row_num+4), self.FORMAT_MONEY))
         
         #6
-        self.function_frame.append(self.project_tax_formula(row_num+5))
+        self.function_frame.append((self.project_tax_formula(row_num+5), self.FORMAT_MONEY))
              
         #7
-        self.function_frame.append(self.project_NI_formula(row_num+6))
+        self.function_frame.append((self.project_NI_formula(row_num+6),self.FORMAT_MONEY))
         #add back depreciaiton for FCFs
-        self.function_frame.append(self.project_depreciation_formula(row_num+3))        
+        self.function_frame.append((self.project_depreciation_formula(row_num+3), self.FORMAT_MONEY))        
                
         #8
-        self.function_frame.append(self.cap_ex)        
+        self.function_frame.append((self.cap_ex, self.FORMAT_MONEY))        
         
-        self.function_frame.append(self.project_ONWC_formula(row_num+7))
+        self.function_frame.append((self.project_ONWC_formula(row_num+7), self.FORMAT_MONEY))
               
         #9
-        self.function_frame.append(self.project_ONWC_change_formula(row_num+8))
+        self.function_frame.append((self.project_ONWC_change_formula(row_num+8), self.FORMAT_MONEY))
         
         #10
-        self.function_frame.append(self.project_FCF_formula(row_num+9))
+        self.function_frame.append((self.project_FCF_formula(row_num+9),self.FORMAT_MONEY))
     
-        self.function_frame.append(self.project_terminal_formula(row_num+10)) 
+        self.function_frame.append((self.project_terminal_formula(row_num+10),self.FORMAT_MONEY)) 
                 
         #11
-        self.function_frame.append(self.project_total_FCFs(row_num+11))
+        self.function_frame.append((self.project_total_FCFs(row_num+11),self.FORMAT_MONEY))
                
         #12
-        self.function_frame.append(self.project_PV_FCFs(row_num + 12))
+        self.function_frame.append((self.project_PV_FCFs(row_num + 12), self.FORMAT_MONEY))
         
         #13
-        self.function_frame.append(self.project_enterprise_value(row_num+13))
+        self.function_frame.append((self.project_enterprise_value(row_num+13), self.FORMAT_MONEY))
         
         #14
-        self.function_frame.append(self.project_FPPS(row_num+14))
+        self.function_frame.append((self.project_FPPS(row_num+14), self.FORMAT_MONEY))
         
         #15
-        self.function_frame.append(self.project_dividends(row_num+15))
+        self.function_frame.append((self.project_dividends(row_num+15),self.FORMAT_MONEY))
         
         #16
-        self.function_frame.append(self.project_shares_outstanding(row_num+16))
+        self.function_frame.append((self.project_shares_outstanding(row_num+16), self.FORMAT_DEF))
     
     def cost_of_equity_formula(self):
         '''CAPM baby. 
