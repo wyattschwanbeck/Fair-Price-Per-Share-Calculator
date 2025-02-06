@@ -8,7 +8,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 3. Project future potential financial performance for companies that report "Business Revenue" (Future enahncements to support banks and financial company stocks in development).
     -Estimates share price based on long term growth potential (default = 1.25%) of yearly free cash flows
    
-   
+![Example](ExampleMSFT.png)  
    
 
 <b>To Use:</b>
