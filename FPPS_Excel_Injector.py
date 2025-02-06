@@ -130,8 +130,29 @@ class FPPS_Excel_Injector(object):
                         # Set the column width as if it was auto-fitted.
                         worksheet.set_column_pixels(c, 0, max_width)
                     function_index+=1
+                
+                
+                #Add bar chart for comparison of projected share price
+                chart1 = self.workbook.add_chart({"type": "column"})
+                chart1.add_series( 
+                    { "name": "Current Share Price",
+                     "categories" : "Current Share Price",
+                     "values" : "=ValueDrivers!B19"
+                        }
+                    )
+                chart1.add_series( 
+                    { "name": "Calculated Fair Price",
+                     "categories" : "Calculated Fair Price",
+                     "values" : "=ValueDrivers!C42"
+                        }
+                    )
+                chart1.set_title({"name": self.VD.ticker})
+                chart1.set_table()
+                worksheet.insert_chart("D2", chart1, {"x_offset": 25, "y_offset": 10})
                 # Autofit the worksheet.
             worksheet.autofit()
+                
+            
     def load_statement_meta_data(self,
                             current_statement, excel_sheet_name,item,item_key,
                             col_count,row_count,c):
